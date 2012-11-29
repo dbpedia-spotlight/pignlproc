@@ -15,11 +15,11 @@
  */
 
 -- TEST: set parallelism level for reducers
-SET default_parallel 15;
+SET default_parallel 7;
 
-SET job.name 'Wikipedia-Token-Counts-per-URI for $LANG';
---SET mapred.compress.map.output 'true';
---SET mapred.map.output.compression.codec 'org.apache.hadoop.io.compress.GzipCodec';
+SET job.name 'Wikipedia-Tfidf-Inverted-Index for $LANG';
+SET mapred.compress.map.output 'true';
+SET mapred.map.output.compression.codec 'org.apache.hadoop.io.compress.GzipCodec';
 -- Register the project jar to use the custom loaders and UDFs
 REGISTER $PIGNLPROC_JAR;
 
@@ -28,7 +28,7 @@ DEFINE getTokens pignlproc.index.LuceneTokenizer('$STOPLIST_PATH', '$STOPLIST_NA
 --uncomment above and comment below to use default stoplist for the analyzer
 --DEFINE getTokens pignlproc.index.LuceneTokenizer('$LANG', '$ANALYZER_NAME');
 DEFINE textWithLink pignlproc.evaluation.ParagraphsWithLink('$MAX_SPAN_LENGTH');
-DEFINE JsonCompressedStorage pignlproc.storage.JsonCompressedStorage();
+--DEFINE JsonCompressedStorage pignlproc.storage.JsonCompressedStorage();
 
 -- Parse the wikipedia dump and extract text and links data
 parsed = LOAD '$INPUT'
@@ -48,27 +48,34 @@ articles = FOREACH parsedNonRedirects GENERATE
   links,
   paragraphs;
 
+--BEGIN store num articles
 -- the next relation is created in order to get the global doc count
-grouped = GROUP articles ALL;
+--grouped = GROUP articles ALL;
+
+--numArticles = FOREACH grouped GENERATE
+--	 COUNT(articles) AS total;
+
+--STORE numArticles INTO '$OUTPUT_DIR/$LANG.numArticles.tsv' USING PigStorage('\t', '-schema');
+--END store num articles
+
 
 -- Extract paragraph contexts of the links 
 paragraphs = FOREACH articles GENERATE
   pageUrl,
   FLATTEN(textWithLink(text, links, paragraphs))
   AS (paragraphIdx, paragraph, targetUri, startPos, endPos);
---DESCRIBE paragraphs;
 -----------------
 -- BEGIN TFIDF --
 -----------------
 doc_context = FOREACH paragraphs GENERATE
         REGEX_EXTRACT(targetUri, '(.*)/(.*)', 2) AS uri,
         getTokens(paragraph) AS context;
---DESCRIBE doc_context;
+
 all_contexts = GROUP doc_context by uri;
 
 --added relation here to filter by number of contexts
 size_filter = FILTER all_contexts BY
-                COUNT(doc_context) >= 1;
+                COUNT(doc_context) >= $MIN_CONTEXTS;
 
 flattened_context = FOREACH size_filter {
         contexts = doc_context.context;
@@ -76,36 +83,28 @@ flattened_context = FOREACH size_filter {
         group AS uri,
         FLATTEN(contexts) AS context;
 };
--- this works: DUMP flattened_context;
---DESCRIBE flattened_context;
-uri_and_token = FOREACH flattened_context GENERATE
+
+raw_uri_and_token = FOREACH flattened_context GENERATE
         uri,
-        FLATTEN(context) AS token;
---DUMP uri_and_token;
---TODO - consider tf normalization - i.e. tf/|tokens|
+        FLATTEN(context) AS token: chararray;
+
+uri_and_token = FILTER raw_uri_and_token BY SIZE(token) <= 25;
 
 -- (2) group by token and Unique Doc to get global doc frequency
 unique = DISTINCT uri_and_token;
 --DUMP unique;
 docs_by_tokens = GROUP unique by token;
 --DUMP docs_by_tokens;
-doc_freq = FOREACH docs_by_tokens GENERATE
+raw_doc_freq = FOREACH docs_by_tokens GENERATE
         group AS token,
 	COUNT(unique) as df;
---	COUNT(grouped.articles) AS numDocs;
---	unique.$1.numDocs as numDocs;
---DESCRIBE doc_freq;
---DUMP doc_freq;
---doc_freq = FILTER raw_doc_freq BY df > $MIN_COUNT;
 
---NUM_DOCS should be the total number of RESOURCES
-raw_idf = FOREACH doc_freq {
-	numDocs = COUNT(grouped.articles);
-        GENERATE
+doc_freq = FILTER raw_doc_freq BY df > $MIN_COUNT;
+
+raw_idf = FOREACH doc_freq GENERATE
         token,
-        LOG((double)numDocs/(double)df) AS idf: double;
---	LOG((double)numDocs/(double)df) AS idf: double;
-};
+        LOG((double)$NUM_DOCS/(double)df) AS idf: double;
+
 
 idf = FILTER raw_idf BY (idf > 0);
 
@@ -126,14 +125,15 @@ term_counts = FOREACH term_freq GENERATE
 token_instances = JOIN term_counts BY token, idf by token;
 
 --(5) calculate tfidf
-tfidf = FOREACH token_instances {
-        tf_idf = (double)term_counts::tf*(double)idf::idf;
-                GENERATE
+raw_tfidf = FOREACH token_instances {
+        tf_idf = (double)term_counts::tf*(double)idf::idf;       
+        GENERATE
                         term_counts::uri as uri,
                         term_counts::token as token,
                         tf_idf as weight;
-        };
---by_docs = group tfidf BY uri;
+};
+tfidf = FILTER raw_tfidf BY (weight >= 1);
+
 by_tokens = group tfidf BY token;
 docs_with_weights = FOREACH by_tokens GENERATE
         group as token,
