@@ -1,0 +1,32 @@
+#Default params for running indexing using Pignlproc scripts
+# input: (uncompressed??) Wikipedia XML dump
+INPUT=nlwiki-latest-pages-articles.xml
+
+#Configuration
+MAX_SPAN_LENGTH=5000
+MIN_COUNT=2
+MIN_CONTEXTS=2
+N=250
+
+#this constant is chosen based upon the reported number of DBpediaResources
+NUM_DOCS=3000000
+
+#Lucene Analyzer to use (language-specific)
+LANG=nl
+ANALYZER_NAME=DutchAnalyzer
+
+# output directory in HDFS
+OUTPUT_DIR=/user/hduser/nl_tokencounts
+
+#Location of the Uri list for filtering
+#URI_LIST=/user/hadoop/input/milne_uri_list.txt
+
+# location of the stop word list file in HDFS
+STOPLIST_PATH=/user/hduser/
+STOPLIST_NAME=stopwords.nl.list
+# local path to JAR containing UDFs
+
+PIGNLPROC_JAR=/home/jodaiber/Desktop/spotlight-nl/data/pignlproc/target/pignlproc-0.1.0-SNAPSHOT.jar
+
+# number of reducers
+DEFAULT_PARALLEL=6
