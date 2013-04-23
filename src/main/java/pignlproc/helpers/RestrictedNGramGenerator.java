@@ -93,6 +93,9 @@ public class RestrictedNGramGenerator extends EvalFunc<DataBag> {
 
         if (surfaceFormLookup.size() == 0 && !this.surfaceFormListFile.equals("")) {
             File folder = new File("./sfs");
+            if(!folder.exists()) {
+                folder = new File(this.surfaceFormListFile);//local mode
+            }
             for (final File fileEntry: folder.listFiles()) {
                 if (fileEntry.getName().startsWith("part-")) {
                     FileReader fr = new FileReader(fileEntry);
