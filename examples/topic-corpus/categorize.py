@@ -12,6 +12,7 @@ You can install sunburnt (the solr / python connector) and lxml with::
 
 import os
 import urllib2
+from urllib import unquote
 from collections import Counter
 from pprint import pprint
 from random import Random
@@ -81,6 +82,12 @@ def bagging_categorize(schema, text, n_categories=5, n_bootstraps=5, seed=42,
             if count > 2 * n_bootstraps / 3]
 
 
+def human_readable(category_id):
+    category_id = category_id[len("Category:"):]
+    category_id = unquote(category_id)
+    return category_id.replace('_', ' ')
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Categorize text documents using text Wikipedia categories')
@@ -136,14 +143,17 @@ if __name__ == "__main__":
                              terms=print_terms,
                              n_terms=n_terms)
     for topic in results:
-        print topic['id'].ljust(50) + " [%0.3f]" % topic['score']
+        topic_name = human_readable(topic['id'])
+        print topic_name.ljust(50) + " [%0.3f]" % topic['score']
 
     if args.print_paths:
         paths = set()
         for topic in results:
             paths.update(topic['paths'])
         for path in sorted(paths):
-            print path
+            print " / ".join(human_readable(element)
+                             for element in path.split("/")
+                             if element.strip())
 
     if args.print_raw_text:
         print "Source text:"

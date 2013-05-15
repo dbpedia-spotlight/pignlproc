@@ -71,15 +71,31 @@ public class AnnotatingMarkupParser implements ITextConverter {
     protected Pattern redirectPattern;
 
 
-    //TODO: fix for compatibility with other languages
     private static Map<String, Pattern> getRedirectPatterns() {
         Map<String, Pattern> m = new HashMap<String, Pattern>();
-        m.put("en", Pattern.compile("^#REDIRECT \\[\\[([^\\]]*)\\]\\]"));
+        m.put("af", Pattern.compile("^(?:#AANSTUUR|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("ar", Pattern.compile("^(?:#تحويل|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("arz", Pattern.compile("^(?:#تحويل|#تحويل|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("be-tarask", Pattern.compile("^(?:#перанакіраваньне|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("bg", Pattern.compile("^(?:#пренасочване|#виж|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("br", Pattern.compile("^(?:#ADKAS|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("bs", Pattern.compile("^(?:#PREUSMJERI|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("cs", Pattern.compile("^(?:#REDIRECT|#PŘESMĚRUJ) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("cu", Pattern.compile("^(?:#ПРѢНАПРАВЛЄНИѤ|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("cy", Pattern.compile("^(?:#ail-cyfeirio|#ailgyfeirio|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("de", Pattern.compile("^(?:#WEITERLEITUNG|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("el", Pattern.compile("^(?:#ΑΝΑΚΑΤΕΥΘΥΝΣΗ|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("en", Pattern.compile("^(?:#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("eo", Pattern.compile("^(?:#ALIDIREKTU|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("es", Pattern.compile("^(?:#REDIRECCIÓN|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("et", Pattern.compile("^(?:#suuna|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("eu", Pattern.compile("^(?:#BIRZUZENDU|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("fa", Pattern.compile("^(?:#تغییرمسیر|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("fi", Pattern.compile("^(?:#OHJAUS|#UUDELLEENOHJAUS|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("fr", Pattern.compile("^(?:#REDIRECTION|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("es", Pattern.compile("^(?:#REDIRECCIÓN|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("pt", Pattern.compile("^(?:#REDIRECIONAMENTO|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
-        m.put("it", Pattern.compile("^(?:#RINVIA|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+
 
         return m;
     }
@@ -92,6 +108,8 @@ public class AnnotatingMarkupParser implements ITextConverter {
     public AnnotatingMarkupParser(String languageCode) {
         this.languageCode = languageCode;
         redirectPattern = REDIRECT_PATTERNS.get(languageCode);
+        if(redirectPattern==null)
+            redirectPattern = REDIRECT_PATTERNS.get("en");
         model = makeWikiModel(languageCode);
     }
 
@@ -143,7 +161,7 @@ public class AnnotatingMarkupParser implements ITextConverter {
     }
 
     public void nodesToText(List<? extends Object> nodes, Appendable buffer,
-            IWikiModel model) throws IOException {
+                            IWikiModel model) throws IOException {
         CountingAppendable countingBuffer;
         if (buffer instanceof CountingAppendable) {
             countingBuffer = (CountingAppendable) buffer;
@@ -247,7 +265,7 @@ public class AnnotatingMarkupParser implements ITextConverter {
     }
 
     public void imageNodeToText(TagNode tagNode, ImageFormat imageFormat,
-            Appendable buffer, IWikiModel model) throws IOException {
+                                Appendable buffer, IWikiModel model) throws IOException {
         nodesToText(tagNode.getChildren(), buffer, model);
     }
 

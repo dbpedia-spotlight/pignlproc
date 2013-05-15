@@ -1,29 +1,16 @@
 package pignlproc.index;
 
 
-
-
 import org.apache.lucene.analysis.Analyzer;
-
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.en.EnglishAnalyzer;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.util.Version;
-import org.apache.lucene.analysis.*;
-
 import org.apache.pig.EvalFunc;
-import org.apache.pig.data.BagFactory;
-import org.apache.pig.data.DataBag;
-import org.apache.pig.data.DataType;
-import org.apache.pig.data.Tuple;
-import org.apache.pig.data.TupleFactory;
+import org.apache.pig.data.*;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
 import org.apache.pig.impl.logicalLayer.schema.Schema.FieldSchema;
 
 import java.io.*;
-import java.lang.invoke.CallSite;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

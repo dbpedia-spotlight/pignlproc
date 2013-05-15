@@ -14,6 +14,25 @@
       <artifactId>pig</artifactId>
       <version>0.10.0</version>
     </dependency>
+
+    <!-- missing transitive dependencies for Pig versions < 0.12 ; see PIG-3189 -->
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr</artifactId>
+      <version>3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr-runtime</artifactId>
+      <version>3.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-mapper-asl</artifactId>
+      <version>1.9.8</version>
+    </dependency>
+
+
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-core</artifactId>
@@ -89,6 +108,12 @@
       <version>4.2</version>
       <scope>test</scope>
     </dependency>
+      <dependency>
+          <groupId>org.dbpedia.spotlight</groupId>
+          <version>0.6</version>
+          <artifactId>core</artifactId>
+      </dependency>
+
   </dependencies>
 
   <build>
@@ -99,6 +124,7 @@
         <configuration>
           <source>1.6</source>
           <target>1.6</target>
+          <encoding>UTF-8</encoding>
         </configuration>
       </plugin>
       <plugin>

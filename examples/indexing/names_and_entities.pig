@@ -2,23 +2,28 @@
  * Wikipedia Statistics for Named Entity Recognition and Disambiguation
  */
 
+-- IMPORTANT: Run this script with "pig -no_multiquery", otherwise the surface forms
+-- that are passed to the distributed cache are not available in $TEMPORARY_SF_LOCATION
+-- before they are required by pignlproc.helpers.RestrictedNGramGenerator.
+
 -- TODO use macros (Pig > 0.9) to make the script more readable (esp. redirect resolution)
 
 
-SET job.name 'Wikipedia-NERD-Stats for $LANG'
+SET job.name 'DBpedia Spotlight: Names and entities for $LANG'
 
 -- enable compression of intermediate results --TODO how much does performance suffer?
+set io.sort.mb 1024
+
 SET pig.tmpfilecompression true;
 SET pig.tmpfilecompression.codec gz;
+
+SET default_parallel 20;
 
 -- Register the project jar to use the custom loaders and UDFs
 REGISTER $PIGNLPROC_JAR
 
 -- Define alias for redirect resolver function
 DEFINE resolve pignlproc.helpers.SecondIfNotNullElseFirst();
-
--- Define Ngram generator with maximum Ngram length
-DEFINE ngramGenerator pignlproc.helpers.NGramGenerator('$MAX_NGRAM_LENGTH');
 
 --------------------
 -- prepare
@@ -30,7 +35,7 @@ parsed = LOAD '$INPUT'
   AS (title, id, pageUrl, text, redirect, links, headers, paragraphs);
 
 -- filter as early as possible
-SPLIT parsed INTO 
+SPLIT parsed INTO
   parsedRedirects IF redirect IS NOT NULL,
   parsedNonRedirects IF redirect IS NULL;
 
@@ -94,7 +99,7 @@ pageLinks = FOREACH sentences GENERATE
   pageUrl AS pageUrl;
 
 -- Filter out surfaceForms that have zero or one character
-pageLinksNonEmptySf = FILTER pageLinks 
+pageLinksNonEmptySf = FILTER pageLinks
   BY SIZE(surfaceForm) >= $MIN_SURFACE_FORM_LENGTH;
 
 -- Resolve redirects
@@ -107,10 +112,23 @@ resolvedLinks = FOREACH pageLinksRedirectsJoin GENERATE
   pageUrl;
 distinctLinks = DISTINCT resolvedLinks;
 
--- Make Ngrams
-pageNgrams = FOREACH articles GENERATE
-  FLATTEN(ngramGenerator(text)) AS ngram,
-  pageUrl;
+pairsFromRedirects = FOREACH redirects GENERATE
+  redirectSourceTitle AS surfaceForm,
+  redirectTarget AS uri;
+
+sfs = UNION ONSCHEMA
+   (FOREACH distinctLinks GENERATE surfaceForm as sf),
+   (FOREACH pairsFromRedirects GENERATE surfaceForm as sf);
+
+STORE sfs INTO '$TEMPORARY_SF_LOCATION/sfs';
+
+-- Define Ngram generator with maximum Ngram length
+DEFINE ngramGenerator pignlproc.helpers.RestrictedNGramGenerator('$MAX_NGRAM_LENGTH', '$TEMPORARY_SF_LOCATION/sfs', '$LOCALE');
+
+EXEC;
+
+-- Make Ngrams (filter to only include ngrams that are also surfaceforms)
+pageNgrams = FOREACH articles GENERATE FLATTEN( ngramGenerator(text) ) AS ngram, pageUrl PARALLEL 40;
 
 -- Double links: if surface form is annotated once,
 -- it's annotated every time for one page.
@@ -123,14 +141,9 @@ pairsFromLinks = FOREACH doubledLinks GENERATE
   surfaceForm,
   uri;
 
-pairsFromRedirects = FOREACH redirects GENERATE
-  redirectSourceTitle AS surfaceForm,
-  redirectTarget AS uri;
-
 pairs = UNION ONSCHEMA
   pairsFromRedirects,
   pairsFromLinks;
-
 
 --------------------
 -- count
@@ -141,6 +154,8 @@ pairGrp = GROUP pairs BY (surfaceForm, uri);
 pairCounts = FOREACH pairGrp GENERATE
   FLATTEN($0) AS (pairSf, pairUri),
   COUNT($1) AS pairCount;
+
+STORE pairCounts INTO         '$OUTPUT/pairCounts';
 
 -- Count pairs: per page
 distinctPairGrp = GROUP distinctLinks BY (surfaceForm, uri);
@@ -160,6 +175,8 @@ uriCounts = FOREACH uriGrp GENERATE
   $0 AS uri,
   COUNT($1) AS uriCount;
 
+STORE uriCounts INTO          '$OUTPUT/uriCounts';
+
 -- Count Ngrams: absolute
 ngrams = FOREACH pageNgrams GENERATE
   ngram;
@@ -168,87 +185,18 @@ ngramCounts = FOREACH ngramGrp GENERATE
   $0 as ngram,
   COUNT($1) AS ngramCount;
 
--- Count Ngrams: per page
-pageNgramsDistinct = DISTINCT pageNgrams;
-pageNgramGrp = GROUP pageNgramsDistinct BY ngram;
-pageNgramCounts = FOREACH pageNgramGrp GENERATE
-  $0 AS ngram,
-  COUNT($1) AS ngramCount;
-
-
 --------------------
 -- calculate results
 --------------------
 
--- calculate P(uri|sf), a.k.a. "ofUri"
-sfJoin = JOIN
-  sfCounts BY surfaceForm,
-  pairCounts BY pairSf;
-probUriGivenSf = FOREACH sfJoin GENERATE
-  surfaceForm,
-  (double)pairCount/sfCount AS ofUri,
-  pairUri;
-
--- calculate P(sf|uri), a.k.a. "uriOf"
-uriJoin = JOIN
-  uriCounts BY uri,
-  pairCounts BY pairUri;
-probSfGivenUri = FOREACH uriJoin GENERATE
-  uri,
-  (double)pairCount/uriCount AS uriOf,
-  pairSf;
-
--- calculate prominence
--- = uriCounts
-
--- calculate keyphraseness: absolute counts with link doubles
-keyphraseJoin = JOIN
-  sfCounts BY surfaceForm,
-  ngramCounts BY ngram;
-keyphraseness = FOREACH keyphraseJoin GENERATE
-  surfaceForm,
-  (double)sfCount/ngramCount AS keyphrasenessScore;
-
--- calculate keyphraseness2: normalize by pages
--- not written at the moment!
-keyphrase2Join = JOIN
-  pagePairCounts BY pagePairSf,
-  pageNgramCounts BY ngram;
-keyphraseness2 = FOREACH keyphrase2Join GENERATE
-  pagePairSf AS surfaceForm,
-  (double)pagePairCount/ngramCount AS keyphraseness2Score;
-
+-- Join annotated and unannotated SF counts:
+sfAndTotalCounts = FOREACH (JOIN
+  sfCounts    BY surfaceForm LEFT OUTER,
+  ngramCounts BY ngram) GENERATE surfaceForm, sfCount, ngramCount;
 
 --------------------
 -- Output
 --------------------
 
--- Join into one bag
-joinAll1 = JOIN
-  probSfGivenUri BY (uri, pairSf),
-  probUriGivenSf BY (pairUri, surfaceForm);
--- some surfaceForms have more words than $MAX_NGRAM_LENGTH
--- --> need outer join for joinAll2
-joinAll2 = JOIN
-  joinAll1 BY surfaceForm LEFT,
-  keyphraseness BY surfaceForm;
-joinAll3 = JOIN
-  joinAll2 BY uri,
-  uriCounts BY uri;
-joinAll4 = JOIN
-  ids BY pageUrl,
-  joinAll3 BY uri;
-
--- Project and establish default values
-nerdStatsTable = FOREACH joinAll4 GENERATE
-  title,
-  joinAll2::joinAll1::probUriGivenSf::sfCounts::surfaceForm,
-  ofUri,
-  uriOf,
-  FLATTEN(resolve('0', keyphrasenessScore)),
-  id,
-  uriCount;
-
 -- Store
-STORE nerdStatsTable INTO '$OUTPUT';
-
+STORE sfAndTotalCounts INTO   '$OUTPUT/sfAndTotalCounts';

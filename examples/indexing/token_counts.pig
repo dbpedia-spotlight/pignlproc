@@ -16,7 +16,7 @@
 -- TEST: set parallelism level for reducers
 SET default_parallel 15;
 
-SET job.name 'Wikipedia-Token-Counts-per-URI for $LANG';
+SET job.name 'DBpedia Spotlight: Token counts per URI for $LANG'
 
 -- Register the project jar to use the custom loaders and UDFs
 REGISTER $PIGNLPROC_JAR;
@@ -27,6 +27,9 @@ DEFINE tokens pignlproc.index.GetCountsLucene('$STOPLIST_PATH','$STOPLIST_NAME',
 
 DEFINE textWithLink pignlproc.evaluation.ParagraphsWithLink('$MAX_SPAN_LENGTH');
 DEFINE JsonCompressedStorage pignlproc.storage.JsonCompressedStorage();
+
+SET pig.tmpfilecompression true;
+SET pig.tmpfilecompression.codec gz;
 
 --------------------
 -- prepare
@@ -82,4 +85,4 @@ freq_sorted = FOREACH contexts {
 	 uri, sorted;
 }
 
-STORE freq_sorted INTO '$OUTPUT_DIR/token_counts.JSON.bz2' USING PigStorage('\t'); 
+STORE freq_sorted INTO '$OUTPUT_DIR' USING PigStorage('\t');

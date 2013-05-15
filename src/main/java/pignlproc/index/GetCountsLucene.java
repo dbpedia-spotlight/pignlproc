@@ -72,7 +72,7 @@ public class GetCountsLucene extends EvalFunc<DataBag> {
     public List<String> getCacheFiles() {
         List<String> list = new ArrayList<String>(1);
 
-        list.add(stoplist_path);
+        list.add(stoplist_path + "#" + stoplist_name);
         return list;
     }
 

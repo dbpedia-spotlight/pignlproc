@@ -12,7 +12,7 @@ wikiNerdStatsJoin = JOIN
   wikiNerdStats BY wikiId_nerdStats;
 
 -- Create Wikipedia-NERD-Stats with Custom-URIs
-wikiNerdStatsWithCutsomUris = FOREACH wikiNerdStatsJoin GENERATE
+wikiNerdStatsWithCustomUris = FOREACH wikiNerdStatsJoin GENERATE
   title,
   surfaceForm,
   ofUri,
@@ -47,7 +47,7 @@ customSfMappingUnambiguousFlat = FOREACH customSfMappingUnambiguous GENERATE
   group AS surfaceForm;
 
 -- Split into data with and without URI
-SPLIT wikiNerdStatsWithCutsomUris INTO
+SPLIT wikiNerdStatsWithCustomUris INTO
   withUri IF (
        customUri IS NOT NULL
     OR SIZE(surfaceForm) < $MIN_SF_LEN_IF_NO_URI

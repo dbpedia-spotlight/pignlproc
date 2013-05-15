@@ -1,0 +1,18 @@
+PIGNLPROC_JAR=%PIG_PATH/target/pignlproc-0.1.0-SNAPSHOT.jar
+
+# number of reducers
+DEFAULT_PARALLEL=6
+
+LANG=%LANG
+LOCALE=%LOCALE
+
+INPUT=/user/hadoop/%LANGwiki-latest-pages-articles.xml
+OUTPUT=/user/hadoop/%LANG/names_and_entities
+
+TEMPORARY_SF_LOCATION=/user/hadoop/%LANG/sf_lookup
+
+
+# NERD STATS
+MAX_NGRAM_LENGTH = 5
+MIN_SURFACE_FORM_LENGTH = 2
+
