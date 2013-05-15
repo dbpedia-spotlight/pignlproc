@@ -10,14 +10,15 @@
 
 
 SET job.name 'DBpedia Spotlight: Names and entities for $LANG'
+SET mapred.child.java.opts '-Xmx2048m'
 
 -- enable compression of intermediate results --TODO how much does performance suffer?
-set io.sort.mb 1024
+--set io.sort.mb 1024
 
-SET pig.tmpfilecompression true;
-SET pig.tmpfilecompression.codec gz;
+--SET pig.tmpfilecompression true;
+--SET pig.tmpfilecompression.codec gz;
 
-SET default_parallel 20;
+--SET default_parallel 20;
 
 -- Register the project jar to use the custom loaders and UDFs
 REGISTER $PIGNLPROC_JAR
@@ -110,8 +111,11 @@ resolvedLinks = FOREACH pageLinksRedirectsJoin GENERATE
   surfaceForm,
   FLATTEN(resolve(uri, redirectTarget)) AS uri,
   pageUrl;
-distinctLinks = DISTINCT resolvedLinks;
 
+distinctLinks = DISTINCT resolvedLinks;
+DESCRIBE distinctLinks;
+
+--WORKING 16.4.13
 pairsFromRedirects = FOREACH redirects GENERATE
   redirectSourceTitle AS surfaceForm,
   redirectTarget AS uri;

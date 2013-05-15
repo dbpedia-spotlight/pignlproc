@@ -7,7 +7,7 @@
 SET default_parallel 20
 
 -- Register the project jar to use the custom loaders and UDFs
-REGISTER target/pignlproc-0.1.0-SNAPSHOT.jar
+REGISTER /home/chris/projects/pignlproc/target/pignlproc-0.1.0-SNAPSHOT.jar
 DEFINE checkAbstract pignlproc.evaluation.CheckAbstract('30');
 
 topic_counts = LOAD 'workspace/topics_counts.tsv'
@@ -25,7 +25,7 @@ article_abstracts = LOAD 'workspace/long_abstracts_en.nt.bz2'
   USING pignlproc.storage.UriStringLiteralNTriplesLoader(
     'http://dbpedia.org/ontology/abstract',
     'http://dbpedia.org/resource/')
-  AS (articleUri: chararray, articleAbstract: chararray);
+  AS (articleUri: chararray, articleAbstract: chararray, lang: chararray);
 
 redirects = LOAD 'workspace/redirects_en.nt.bz2'
   USING pignlproc.storage.UriUriNTriplesLoader(
@@ -55,61 +55,64 @@ topic_counts_filtered = FILTER topic_counts BY
   AND topicUri != 'Category:People_by_period'
   AND topicUri != 'Category:Surnames';
 
+--CHRIS: testing here
+DESCRIBE article_abstracts;
 
 -- Project early: we don't need to load the abstract content: use NULL as
 -- false marker to be able to combine them with missing abstracts later
-articles = FOREACH article_abstracts GENERATE
-   articleUri AS articleUri,
-   (checkAbstract(articleAbstract) ? 1 : NULL) AS hasGoodAbstract;
+--articles = FOREACH article_abstracts GENERATE
+--   articleUri AS articleUri,
+--   (checkAbstract(articleAbstract) ? 1 : NULL) AS hasGoodAbstract;
 
-STORE articles INTO 'workspace/articles_abstract_check.tsv';
+--DESCRIBE articles;
+--STORE articles INTO 'workspace/articles_abstract_check.tsv';
 
 -- Build are candidate matching article URI by removing the 'Category:'
 -- part of the topic URI
-candidate_grounded_topics = FOREACH topic_counts_filtered GENERATE
-  topicUri, REPLACE(topicUri, 'Category:', '') AS candidatePrimaryArticleUri,
-  articleCount, narrowerTopicCount, broaderTopicCount;
+--candidate_grounded_topics = FOREACH topic_counts_filtered GENERATE
+--  topicUri, REPLACE(topicUri, 'Category:', '') AS candidatePrimaryArticleUri,
+--  articleCount, narrowerTopicCount, broaderTopicCount;
 
 -- follow the redirect links if any
-redirect_joined = JOIN candidate_grounded_topics BY candidatePrimaryArticleUri
-  LEFT OUTER, redirects BY source;
-redirected_candidate_grounded_topics = FOREACH redirect_joined GENERATE
-  topicUri AS topicUri,
-  (target IS NOT NULL ?
-     target : candidatePrimaryArticleUri) AS candidatePrimaryArticleUri,
-  articleCount AS articleCount;
+--redirect_joined = JOIN candidate_grounded_topics BY candidatePrimaryArticleUri
+--  LEFT OUTER, redirects BY source;
+--redirected_candidate_grounded_topics = FOREACH redirect_joined GENERATE
+--  topicUri AS topicUri,
+--  (target IS NOT NULL ?
+--     target : candidatePrimaryArticleUri) AS candidatePrimaryArticleUri,
+--  articleCount AS articleCount;
 
 -- Join on article abstracts to identify grounded topics
 -- (topics that have a matching article with an abstract)
-joined_candidate_grounded_topics = JOIN
-  redirected_candidate_grounded_topics BY candidatePrimaryArticleUri LEFT OUTER,
-  articles BY articleUri;
+--joined_candidate_grounded_topics = JOIN
+--  redirected_candidate_grounded_topics BY candidatePrimaryArticleUri LEFT OUTER,
+--  articles BY articleUri;
 
-projected_candidate_grounded_topics = FOREACH joined_candidate_grounded_topics
-  GENERATE
-    redirected_candidate_grounded_topics::topicUri AS topicUri,
-    (articles::hasGoodAbstract IS NOT NULL ?
-      articles::articleUri : NULL) AS primaryArticleUri,
-    redirected_candidate_grounded_topics::articleCount AS articleCount;
+--projected_candidate_grounded_topics = FOREACH joined_candidate_grounded_topics
+--  GENERATE
+--    redirected_candidate_grounded_topics::topicUri AS topicUri,
+--    (articles::hasGoodAbstract IS NOT NULL ?
+--      articles::articleUri : NULL) AS primaryArticleUri,
+--    redirected_candidate_grounded_topics::articleCount AS articleCount;
 
-distinct_candidate_grounded_topics =
-  DISTINCT projected_candidate_grounded_topics;
+--distinct_candidate_grounded_topics =
+--  DISTINCT projected_candidate_grounded_topics;
 
-ordered_candidate_grounded_topics = ORDER distinct_candidate_grounded_topics
-  BY articleCount DESC, topicUri;
+--ordered_candidate_grounded_topics = ORDER distinct_candidate_grounded_topics
+--  BY articleCount DESC, topicUri;
 
-SPLIT ordered_candidate_grounded_topics INTO
-   grounded_topics IF primaryArticleUri IS NOT NULL,
-   nongrounded_topics IF primaryArticleUri IS NULL;
+--SPLIT ordered_candidate_grounded_topics INTO
+--   grounded_topics IF primaryArticleUri IS NOT NULL,
+--   nongrounded_topics IF primaryArticleUri IS NULL;
 
-projected_nongrounded_topics = FOREACH nongrounded_topics
-  GENERATE topicUri, articleCount;
+--projected_nongrounded_topics = FOREACH nongrounded_topics
+--  GENERATE topicUri, articleCount;
 
 -- all topics, grounded and non grounded (primaryArticleUri can be NULL)
-STORE distinct_candidate_grounded_topics INTO 'workspace/linked_topics.tsv';
+--STORE distinct_candidate_grounded_topics INTO 'workspace/linked_topics.tsv';
 
 -- only grounded topics (primaryArticleUri is not NULL)
-STORE grounded_topics INTO 'workspace/grounded_topics.tsv';
+--STORE grounded_topics INTO 'workspace/grounded_topics.tsv';
 
 -- only non-grounded topics (hence no primaryArticleUri either)
-STORE projected_nongrounded_topics INTO 'workspace/nongrounded_topics.tsv';
+--STORE projected_nongrounded_topics INTO 'workspace/nongrounded_topics.tsv';
