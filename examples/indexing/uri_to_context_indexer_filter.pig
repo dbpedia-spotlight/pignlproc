@@ -18,10 +18,8 @@ SET job.name 'URI to context index for $LANG';
 -- Register the project jar to use the custom loaders and UDFs
 REGISTER $PIGNLPROC_JAR;
 
--- Define alias for tokenizer function
 DEFINE concatenate pignlproc.helpers.Concatenate();
 DEFINE textWithLink pignlproc.evaluation.ParagraphsWithLink('$MAX_SPAN_LENGTH');
-
 
 --------------------
 -- prepare

@@ -1,7 +1,7 @@
 #Default params for running indexing using Pignlproc scripts
 # input: Wikipedia XML dump
-#INPUT=/home/chris/projects/pignlproc/src/test/resources/enwiki-latest-pages-articles-1000.xml
-INPUT=/media/Chris\ 2TB/wikidumps/enwiki-20120601-pages-articles.xml
+INPUT=/home/chris/projects/pignlproc/src/test/resources/enwiki-latest-pages-articles-1000.xml
+#INPUT=/media/Chris\ 2TB/wikidumps/enwiki-20120601-pages-articles.xml
 #INPUT=src/test/resources/enwiki-pages-articles-sample.xml
 #INPUT=src/test/resources/frwiki-20101103-pages-articles-sample.xml
 #INPUT = /home/chris/projects/Twopics/perl/out.txt
@@ -11,10 +11,12 @@ INPUT=/media/Chris\ 2TB/wikidumps/enwiki-20120601-pages-articles.xml
 INVERTED_INDEX=/home/chris/data/pig_output/indexes/inverted/en.tfidf_inverted_index-1000.tsv
 TFIDF_INDEX=/home/chris/data/pig_output/indexes/tfidf/en.tfidf_token_weights-1000.tsv
 
+
 #Configuration
 MAX_SPAN_LENGTH=5000
 MIN_COUNT=1
 MIN_CONTEXTS=1
+MIN_SURFACE_FORM_LENGTH=1
 #NUM_DOCS=1000
 NUM_DOCS=7519283
 N=100
