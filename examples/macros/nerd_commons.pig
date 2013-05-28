@@ -122,10 +122,10 @@ DEFINE red(parsedRedirects) RETURNS p {
       FLATTEN(resolve(target1a, target1b)) AS redirect;
 };
 
-DEFINE diskIntensiveNgrams(articles, MAX_NGRAM_LENGTH) RETURNS pageNgrams {
+DEFINE diskIntensiveNgrams(articles, MAX_NGRAM_LENGTH, LOCALE) RETURNS pageNgrams {
     -- create *all* ngrams in a bag
 
-    DEFINE ngramGenerator pignlproc.helpers.NGramGenerator('$MAX_NGRAM_LENGTH');
+    DEFINE ngramGenerator pignlproc.helpers.RestrictedNGramGenerator('$MAX_NGRAM_LENGTH', '', '$LOCALE'); -- do not restrict: ''
 
     $pageNgrams = FOREACH $articles GENERATE
       FLATTEN(ngramGenerator(text)) AS ngram,
@@ -133,6 +133,7 @@ DEFINE diskIntensiveNgrams(articles, MAX_NGRAM_LENGTH) RETURNS pageNgrams {
 };
 
 DEFINE memoryIntensiveNgrams(articles, pairs, MAX_NGRAM_LENGTH, TEMPORARY_SF_LOCATION, LOCALE) RETURNS pageNgrams {
+    -- create ngrams that also are surface forms in the pairs bag
 
     allSurfaceForms = FOREACH pairs GENERATE
       surfaceForm;
@@ -144,7 +145,8 @@ DEFINE memoryIntensiveNgrams(articles, pairs, MAX_NGRAM_LENGTH, TEMPORARY_SF_LOC
 
     -- filter to only include ngrams that are also surface forms while generating ngrams
     $pageNgrams = FOREACH $articles GENERATE
-      FLATTEN( ngramGenerator(text) ) AS ngram, pageUrl PARALLEL 40;
+      FLATTEN( ngramGenerator(text) ) AS ngram,
+      pageUrl PARALLEL 40;
 };
 
 DEFINE count(pairs, pageNgrams) RETURNS uriCounts, sfCounts, pairCounts, ngramCounts {

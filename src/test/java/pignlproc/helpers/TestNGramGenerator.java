@@ -1,22 +1,22 @@
 package pignlproc.helpers;
 
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.TreeSet;
-
 import org.apache.pig.data.DataBag;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.data.TupleFactory;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.TreeSet;
+
 public class TestNGramGenerator {
 
     TupleFactory tupleFactory = TupleFactory.getInstance();
 
     private void test(String testString, Set<String> correctNgrams, int ngramLength) throws IOException {
-        NGramGenerator generator = new NGramGenerator(ngramLength);
+        RestrictedNGramGenerator generator = new RestrictedNGramGenerator(ngramLength, "", "en_US");
         Tuple inputTuple = tupleFactory.newTuple(testString);
         DataBag resultBag = generator.exec(inputTuple);
         for (Tuple tuple : resultBag) {
