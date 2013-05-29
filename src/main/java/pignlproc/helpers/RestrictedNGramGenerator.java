@@ -76,6 +76,7 @@ public class RestrictedNGramGenerator extends EvalFunc<DataBag> {
     protected RestrictedNGramGenerator(int ngramSizeLimit, StringTokenizer tokenizer) {
         this.ngramSizeLimit = ngramSizeLimit;
         this.tokenizer = tokenizer;
+        this.loadSurfaceFormsToMemory = false;
     }
 
     public List<String> getCacheFiles() {
