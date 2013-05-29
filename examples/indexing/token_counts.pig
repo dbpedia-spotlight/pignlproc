@@ -1,5 +1,5 @@
 /*
- * Wikipedia Statistics for Named Entity Recognition and Disambiguation
+ * Token counts associated with Wikipedia concepts.
  *
  * @params $OUTPUT_DIR - the directory where the files should be stored
  *         $STOPLIST_PATH - the location of the stoplist in HDFS		
@@ -31,29 +31,13 @@ DEFINE JsonCompressedStorage pignlproc.storage.JsonCompressedStorage();
 SET pig.tmpfilecompression true;
 SET pig.tmpfilecompression.codec gz;
 
---------------------
--- prepare
---------------------
 
--- Parse the wikipedia dump and extract text and links data
-parsed = LOAD '$INPUT'
-  USING pignlproc.storage.ParsingWikipediaLoader('$LANG')
-  AS (title, id, pageUrl, text, redirect, links, headers, paragraphs);
+IMPORT '$MACROS_DIR/nerd_commons.pig';
 
+-- Get articles (IDs and pairs are not used (and not produced))
+_ids, articles, _pairs = read('$INPUT', '$LANG', $MIN_SURFACE_FORM_LENGTH);
 
--- filter as early as possible
-SPLIT parsed INTO 
-  parsedRedirects IF redirect IS NOT NULL,
-  parsedNonRedirects IF redirect IS NULL;
-
--- Project articles
-articles = FOREACH parsedNonRedirects GENERATE
-  pageUrl,
-  text,
-  links,
-  paragraphs;
-
--- Extract paragraph contexts of the links 
+-- Extract paragraph contexts of the links
 paragraphs = FOREACH articles GENERATE
   pageUrl,
   FLATTEN(textWithLink(text, links, paragraphs))
