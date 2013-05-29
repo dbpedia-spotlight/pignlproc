@@ -72,6 +72,12 @@ public class RestrictedNGramGenerator extends EvalFunc<DataBag> {
         this(Integer.valueOf(ngramSizeLimit), surfaceFormListFile, locale);
     }
 
+    // for testing; no distributed cache available
+    protected RestrictedNGramGenerator(int ngramSizeLimit, StringTokenizer tokenizer) {
+        this.ngramSizeLimit = ngramSizeLimit;
+        this.tokenizer = tokenizer;
+    }
+
     public List<String> getCacheFiles() {
         List<String> list = new ArrayList<String>(2);
         if (this.loadSurfaceFormsToMemory) {
