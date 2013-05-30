@@ -3,6 +3,7 @@ DEFINE read(WIKIPEDIA_DUMP, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS ids, articles
     -- parse Wikipedia into IDs, article texts and link pairs
 
     DEFINE resolve pignlproc.helpers.SecondIfNotNullElseFirst();
+    DEFINE dbpediaEncode pignlproc.evaluation.DBpediaUriEncode('$LANG');
 
     -- Parse the wikipedia dump and extract text and links data
     parsed = LOAD '$WIKIPEDIA_DUMP'
@@ -19,8 +20,6 @@ DEFINE read(WIKIPEDIA_DUMP, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS ids, articles
       links,
       headers,
       paragraphs;
-
-    STORE parsed INTO 'parsed';
 
     -- Separate redirects from non-redirects
     SPLIT parsed INTO
