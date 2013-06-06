@@ -1,5 +1,5 @@
 /*
- * Wikipedia Statistics for Named Entity Recognition and Disambiguation
+ * Token counts associated with Wikipedia concepts.
  *
  * @params $OUTPUT_DIR - the directory where the files should be stored
  *         $STOPLIST_PATH - the location of the stoplist in HDFS		
@@ -13,47 +13,30 @@
  */
 
 
--- TEST: set parallelism level for reducers
-SET default_parallel 15;
-
 SET job.name 'DBpedia Spotlight: Token counts per URI for $LANG'
+
+%default DEFAULT_PARALLEL 20
+SET default_parallel $DEFAULT_PARALLEL
+
+SET pig.tmpfilecompression true
+SET pig.tmpfilecompression.codec gz
 
 -- Register the project jar to use the custom loaders and UDFs
 REGISTER $PIGNLPROC_JAR;
 
 -- Define alias for tokenizer function
---DEFINE tokens pignlproc.index.GetCountsLucene('$STOPLIST_PATH', '$STOPLIST_NAME','$LANG','$ANALYZER_NAME');
 DEFINE tokens pignlproc.index.GetCountsLucene('$STOPLIST_PATH','$STOPLIST_NAME','$LANG','$ANALYZER_NAME');
 
 DEFINE textWithLink pignlproc.evaluation.ParagraphsWithLink('$MAX_SPAN_LENGTH');
 DEFINE JsonCompressedStorage pignlproc.storage.JsonCompressedStorage();
 
-SET pig.tmpfilecompression true;
-SET pig.tmpfilecompression.codec gz;
 
---------------------
--- prepare
---------------------
+IMPORT '$MACROS_DIR/nerd_commons.pig';
 
--- Parse the wikipedia dump and extract text and links data
-parsed = LOAD '$INPUT'
-  USING pignlproc.storage.ParsingWikipediaLoader('$LANG')
-  AS (title, id, pageUrl, text, redirect, links, headers, paragraphs);
+-- Get articles (IDs and pairs are not used (and not produced))
+_ids, articles, _pairs = read('$INPUT', '$LANG', $MIN_SURFACE_FORM_LENGTH);
 
-
--- filter as early as possible
-SPLIT parsed INTO 
-  parsedRedirects IF redirect IS NOT NULL,
-  parsedNonRedirects IF redirect IS NULL;
-
--- Project articles
-articles = FOREACH parsedNonRedirects GENERATE
-  pageUrl,
-  text,
-  links,
-  paragraphs;
-
--- Extract paragraph contexts of the links 
+-- Extract paragraph contexts of the links
 paragraphs = FOREACH articles GENERATE
   pageUrl,
   FLATTEN(textWithLink(text, links, paragraphs))
@@ -61,8 +44,8 @@ paragraphs = FOREACH articles GENERATE
 
 --Changes for indexing on small cluster
 contexts = FOREACH paragraphs GENERATE
-	targetUri AS uri,
-	paragraph AS paragraph;
+  targetUri AS uri,
+  paragraph AS paragraph;
 
 -- this is reduce #1
 by_uri = GROUP contexts by uri;
@@ -70,19 +53,21 @@ by_uri = GROUP contexts by uri;
 min_contexts = FILTER by_uri BY (COUNT(contexts) >=$MIN_CONTEXTS);
 
 paragraph_bag = FOREACH min_contexts GENERATE
-	group as uri, contexts.paragraph as paragraphs;
+	group AS uri,
+	contexts.paragraph AS paragraphs;
 
 --TOKENIZE, REMOVE STOPWORDS AND COUNT HERE
 contexts = FOREACH paragraph_bag GENERATE
-	uri, tokens(paragraphs) as tokens;
+	uri, tokens(paragraphs) AS tokens;
 
 freq_sorted = FOREACH contexts {
 	unsorted = tokens.(token, count);
-        filtered = FILTER unsorted BY (count >= $MIN_COUNT);
+    filtered = FILTER unsorted BY (count >= $MIN_COUNT);
 	-- sort descending
 	sorted = ORDER filtered BY count desc;
 	GENERATE
-	 uri, sorted;
+	  uri, sorted;
 }
 
 STORE freq_sorted INTO '$OUTPUT_DIR' USING PigStorage('\t');
+

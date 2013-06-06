@@ -36,65 +36,100 @@ import java.util.*;
 
 
 /**
- * This is a modification of the NGramGenerator class. Additionally, a
- * distributed cache file is kept that contains all allowed surface forms.
+ * Generates N-grams, while using a distributed cache file that contains
+ * all allowed surface forms.
  * Only ngrams matching a surface form are produced.
  */
-
 public class RestrictedNGramGenerator extends EvalFunc<DataBag> {
 
-    private int ngramSizeLimit;
+    private static final String SURFACE_FORMS_LIST_VAR = "sfs";
+    private static final String TOKENIZER_MODEL_VAR = "tokenizer_model";
 
     private StringTokenizer tokenizer;
+    private int ngramSizeLimit;
+
+    private String surfaceFormListFile;
+    private boolean loadSurfaceFormsToMemory;
+    private Set<String> surfaceFormLookup;
+
+    private Locale locale;
+    private String language;
 
     private final BagFactory bagFactory = DefaultBagFactory.getInstance();
     private final TupleFactory tupleFactory = TupleFactory.getInstance();
 
-    private Set<String> surfaceFormLookup = new HashSet<String>();
-    private String surfaceFormListFile;
-
-    private String language;
-
     public RestrictedNGramGenerator(int ngramSizeLimit, String surfaceFormListFile, String locale) {
         this.ngramSizeLimit = ngramSizeLimit;
         this.surfaceFormListFile = surfaceFormListFile;
-        String[] localeA = locale.split("_");
+        this.loadSurfaceFormsToMemory = !this.surfaceFormListFile.equals("");
 
-        this.language = localeA[0];
-
-        if (new File("./tokenizer_model").length() > 10) {
-            try {
-                this.tokenizer = new OpenNLPStringTokenizer(new TokenizerME(new TokenizerModel(new FileInputStream(new File("./tokenizer_model")))), new Stemmer());
-            } catch (IOException ignored) {}
-        }
-
-        if (this.tokenizer == null)
-            this.tokenizer = new LanguageIndependentStringTokenizer(new Locale(localeA[0], localeA[1]), new Stemmer());
-
+        String[] localeArr = locale.split("_");
+        this.locale = new Locale(localeArr[0], localeArr[1]);
+        this.language = localeArr[0];
     }
 
-    // Pig versions < 0.9 seem to only pass strings in constructor
     public RestrictedNGramGenerator(String ngramSizeLimit, String surfaceFormListFile, String locale) {
         this(Integer.valueOf(ngramSizeLimit), surfaceFormListFile, locale);
     }
 
+    // for testing; no distributed cache available
+    protected RestrictedNGramGenerator(int ngramSizeLimit, StringTokenizer tokenizer) {
+        this.ngramSizeLimit = ngramSizeLimit;
+        this.tokenizer = tokenizer;
+        this.loadSurfaceFormsToMemory = false;
+    }
+
     public List<String> getCacheFiles() {
-        List<String> list = new ArrayList<String>(1);
-
-        if (!this.surfaceFormListFile.equals(""))
-            list.add(this.surfaceFormListFile + "#sfs");
-
-        list.add(this.language + ".tokenizer_model" + "#tokenizer");
+        List<String> list = new ArrayList<String>(2);
+        if (this.loadSurfaceFormsToMemory) {
+            list.add(this.surfaceFormListFile + "#" + SURFACE_FORMS_LIST_VAR);
+        }
+        list.add(this.language + ".tokenizer_model" + "#" + TOKENIZER_MODEL_VAR);
         return list;
     }
 
     @Override
     public DataBag exec(Tuple input) throws IOException {
+        checkAndSetTokenizer();
+        checkAndSetSurfaceForms();
 
-        if (surfaceFormLookup.size() == 0 && !this.surfaceFormListFile.equals("")) {
-            File folder = new File("./sfs");
-            if(!folder.exists()) {
-                folder = new File(this.surfaceFormListFile);//local mode
+        String text = (String)input.get(0);
+        Span[] spans = this.tokenizer.tokenizePos(text);
+        DataBag output = this.bagFactory.newDefaultBag();
+        fillOutputWithNgrams(spans, text, output, this.ngramSizeLimit);
+        return output;
+    }
+
+    /**
+     * Init tokenizer from distributed cache.
+     * Fall back on language independent tokenization.
+     */
+    private void checkAndSetTokenizer() {
+        if (this.tokenizer == null) {
+            if (new File("./" + TOKENIZER_MODEL_VAR).length() > 10) {
+                try {
+                    this.tokenizer = new OpenNLPStringTokenizer(new TokenizerME(new TokenizerModel(new FileInputStream(new File("./" + TOKENIZER_MODEL_VAR)))), new Stemmer());
+                } catch (IOException ignored) {
+                    // default to LanguageIndependentStringTokenizer below
+                }
+            }
+
+            if (this.tokenizer == null) {
+                this.tokenizer = new LanguageIndependentStringTokenizer(this.locale, new Stemmer());
+            }
+        }
+    }
+
+    /**
+     * Init set of surface forms, if a distributed cache file is provided.
+     * @throws IOException
+     */
+    private void checkAndSetSurfaceForms() throws IOException {
+        if (this.loadSurfaceFormsToMemory && this.surfaceFormLookup == null) {
+            this.surfaceFormLookup = new HashSet<String>();
+            File folder = new File("./" + SURFACE_FORMS_LIST_VAR);
+            if (!folder.exists()) {
+                folder = new File(this.surfaceFormListFile); // local mode
             }
             for (final File fileEntry: folder.listFiles()) {
                 if (fileEntry.getName().startsWith("part-")) {
@@ -102,19 +137,12 @@ public class RestrictedNGramGenerator extends EvalFunc<DataBag> {
                     BufferedReader d = new BufferedReader(fr);
                     String strLine;
                     while ((strLine = d.readLine()) != null)   {
-                        surfaceFormLookup.add(strLine.trim());
+                        this.surfaceFormLookup.add(strLine.trim());
                     }
                     fr.close();
                 }
             }
         }
-
-        String text = (String)input.get(0);
-        Span[] spans = tokenizer.tokenizePos(text);
-        DataBag output = bagFactory.newDefaultBag();
-        fillOutputWithNgrams(spans, text, output, this.ngramSizeLimit);
-        return output;
-
     }
 
     /**
@@ -130,8 +158,8 @@ public class RestrictedNGramGenerator extends EvalFunc<DataBag> {
             int endIdx = startIdx + size - 1;
             String ngram = text.substring(spans[startIdx].getStart(), spans[endIdx].getEnd());
 
-            if (this.surfaceFormListFile.equals("") || surfaceFormLookup.contains(ngram)) {
-                Tuple tuple = tupleFactory.newTuple(ngram);
+            if (!this.loadSurfaceFormsToMemory || this.surfaceFormLookup.contains(ngram)) {
+                Tuple tuple = this.tupleFactory.newTuple(ngram);
                 output.add(tuple);
             }
         }
@@ -150,8 +178,10 @@ public class RestrictedNGramGenerator extends EvalFunc<DataBag> {
         Schema bagSchema = new Schema();
         bagSchema.add(new Schema.FieldSchema("ngram", DataType.CHARARRAY));
         try {
-            return new Schema(new Schema.FieldSchema(getSchemaName(this.getClass().getName().toLowerCase(), input),
-                    bagSchema, DataType.BAG));
+            return new Schema(new Schema.FieldSchema(
+                    getSchemaName(this.getClass().getName().toLowerCase(), input),
+                    bagSchema,
+                    DataType.BAG));
         } catch (FrontendException e) {
             return null;
         }
