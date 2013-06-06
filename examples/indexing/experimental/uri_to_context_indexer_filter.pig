@@ -40,7 +40,9 @@ SPLIT parsed INTO
   parsedRedirects IF redirect IS NOT NULL,
   parsedNonRedirects IF redirect IS NULL;
 
--- Project articles
+--We don't need to resolve the redirects here
+
+-- project articles
 articles = FOREACH parsedNonRedirects GENERATE
   pageUrl,
   text,
@@ -62,7 +64,8 @@ contexts = FOREACH filtered GENERATE
 
 by_uri = GROUP contexts by uri;
 
-filtered = FILTER by_uri by (COUNT(contexts.uri) > 20) AND (COUNT(contexts.uri)<100);
+--filtered = FILTER by_uri by (COUNT(contexts.uri) > 20) AND (COUNT(contexts.uri)<100);
+filtered = FILTER by_uri by (COUNT(contexts.uri) > 50); 
 
 flattened = FOREACH filtered GENERATE
 	group as uri,

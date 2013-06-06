@@ -57,15 +57,16 @@ contexts = FOREACH paragraphs GENERATE
 by_uri = GROUP contexts by uri;
 --Testing here
 --DESCRIBE by_uri;
-filtered = FILTER by_uri by COUNT(contexts.uri) > 10;
+filtered = FILTER by_uri by COUNT(contexts.uri) >= 3;
 
 paragraph_bag = FOREACH filtered GENERATE
 	group as uri, concatenate(contexts.paragraph) as context: chararray;
 
-ordered = order paragraph_bag by uri;
+--Unneccesary for some applications
+--ordered = order paragraph_bag by uri;
 
 --Now output to .TSV --> Last directory in dir is hard-coded for now
-STORE ordered INTO '$DIR/uri_to_aggregate_context.TSV.bz2' USING PigStorage();
+STORE paragraph_bag INTO '$OUTPUT_DIR/uri_to_aggregate_context.TSV.bz2' USING PigStorage();
 
 --TEST
 --DUMP ordered;

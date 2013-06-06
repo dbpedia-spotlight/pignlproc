@@ -36,7 +36,7 @@
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-core</artifactId>
-      <version>0.20.2</version>
+      <version>1.1.0</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -47,7 +47,7 @@
     <dependency>
       <groupId>info.bliki.wiki</groupId>
       <artifactId>bliki-core</artifactId>
-      <version>3.0.16</version>
+      <version>3.0.19</version>
     </dependency>
     <dependency>
       <groupId>commons-lang</groupId>
