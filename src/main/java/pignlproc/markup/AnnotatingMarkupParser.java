@@ -122,6 +122,7 @@ public class AnnotatingMarkupParser implements ITextConverter {
         m.put("oc", Pattern.compile("^(?:#REDIRECCION|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("pl", Pattern.compile("^(?:#PATRZ|#PRZEKIERUJ|#TAM|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("pt", Pattern.compile("^(?:#REDIRECIONAMENTO|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
+        m.put("it", Pattern.compile("^(?:#RINVIA|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("ro", Pattern.compile("^(?:#REDIRECTEAZA|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("ru", Pattern.compile("^(?:#перенаправление|#перенапр|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
         m.put("sa", Pattern.compile("^(?:#पुनर्निदेशन|#REDIRECT) \\[\\[([^\\]]*)\\]\\]"));
