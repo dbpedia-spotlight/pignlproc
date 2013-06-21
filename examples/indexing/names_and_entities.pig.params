@@ -11,6 +11,7 @@ OUTPUT=/user/hadoop/%LANG/names_and_entities
 
 TEMPORARY_SF_LOCATION=/user/hadoop/%LANG/sf_lookup
 
+MACROS_DIR=../macros/
 
 # NERD STATS
 MAX_NGRAM_LENGTH = 5

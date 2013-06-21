@@ -18,6 +18,8 @@ ANALYZER_NAME=DutchAnalyzer
 # output directory in HDFS
 OUTPUT_DIR=/user/hadoop/%LANG/tokenCounts
 
+MACROS_DIR=../macros/
+
 #Location of the Uri list for filtering
 #URI_LIST=input/milne_uri_list.txt
 
