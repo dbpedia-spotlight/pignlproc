@@ -18,16 +18,16 @@
 -- TEST: set parallelism level for reducers
 SET default_parallel 15;
 
-SET job.name 'Wikipedia-Token-Counts-per-URI for $LANG';
+SET job.name 'Wikipedia-TFIDF-Index-per-URI for $LANG';
 --SET mapred.compress.map.output 'true';
 --SET mapred.map.output.compression.codec 'org.apache.hadoop.io.compress.GzipCodec';
 -- Register the project jar to use the custom loaders and UDFs
 REGISTER $PIGNLPROC_JAR;
 
 -- Define aliases
-DEFINE getTokens pignlproc.index.LuceneTokenizer('$STOPLIST_PATH', '$STOPLIST_NAME', '$LANG', '$ANALYZER_NAME');
+--DEFINE getTokens pignlproc.index.LuceneTokenizer('$STOPLIST_PATH', '$STOPLIST_NAME', '$LANG', '$ANALYZER_NAME');
 --Comment above and uncomment below to use default stoplist for the analyzer
---DEFINE getTokens pignlproc.index.LuceneTokenizer('$LANG', '$ANALYZER_NAME');
+DEFINE getTokens pignlproc.index.LuceneTokenizer('$LANG', '$ANALYZER_NAME');
 DEFINE textWithLink pignlproc.evaluation.ParagraphsWithLink('$MAX_SPAN_LENGTH');
 DEFINE JsonCompressedStorage pignlproc.storage.JsonCompressedStorage();
 DEFINE keepTopN pignlproc.helpers.FirstNtuples('$N');
@@ -69,7 +69,7 @@ all_contexts = GROUP doc_context by uri;
 
 --added relation here to filter by number of contexts
 size_filter = FILTER all_contexts BY
-		COUNT(doc_context) >= 1;
+		COUNT(doc_context) >= 10 AND COUNT(doc_context) < 1000;
 
 flattened_context = FOREACH size_filter {
 	contexts = doc_context.context;
@@ -114,30 +114,53 @@ term_counts = FILTER raw_term_counts BY tf > $MIN_COUNT;
 
 --(4) put the data together
 token_instances = JOIN term_counts BY token, idf by token; 
-
+--DUMP token_instances;
 --(5) calculate tfidf using $NUM_DOCS - note that the user must know how many RESOURCES there are, not how many docs
 tfidf = FOREACH token_instances {
 	tf_idf = (double)term_counts::tf*(double)idf::idf;
 		GENERATE 
 			term_counts::uri as uri,
 			term_counts::token as token,
-			tf_idf as weight;
+			tf_idf as weight,
+            (double)term_counts::tf as tf;
 	};
+--DUMP tfidf;
 by_docs = group tfidf BY uri;
 docs_with_weights = FOREACH by_docs GENERATE
 	group as uri,
-	tfidf.(token,weight) as tokens; 
+	tfidf.(token,weight) as tokens, 
+    SUM(tfidf.tf) as num_tokens;
 
 ordered = FOREACH docs_with_weights {
 	sorted = ORDER tokens by weight desc;
 	GENERATE 
-	uri, sorted;	
+	uri, sorted, num_tokens;	
 };
 
---top = FOREACH ordered GENERATE
---	uri,
---	keepTopN(sorted) AS sorted;
+top = FOREACH ordered GENERATE
+	uri,
+	keepTopN(sorted) AS tokens,
+    num_tokens;
 
---STORE top INTO '$OUTPUT_DIR/$LANG.tfidf_token_weights.json.bz2' USING JsonCompressedStorage();
-STORE ordered INTO '$OUTPUT_DIR/$LANG.tfidf_token_weights.tsv' USING PigStorage('\t','-schema');
+flattened_token_counts = FOREACH top GENERATE
+    uri as uri,
+    FLATTEN(tokens) as (token, weight),
+    num_tokens;
+
+normalized = FOREACH flattened_token_counts {
+    reciprocal = 1/num_tokens;
+    GENERATE
+    uri,
+    token,
+    weight * reciprocal AS weight;
+};
+
+regrouped  = group normalized BY uri;
+final_weights = FOREACH regrouped GENERATE
+	group as uri,
+	normalized.(token,weight) as tokens; 
+
+
+STORE final_weights INTO '$OUTPUT_DIR/$LANG.tfidf_token_weights.json.bz2' USING JsonCompressedStorage();
+--STORE ordered INTO '$OUTPUT_DIR/$LANG.tfidf_token_weights.tsv' USING PigStorage('\t','-schema');
 

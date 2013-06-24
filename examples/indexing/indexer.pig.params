@@ -1,27 +1,55 @@
 #Default params for running indexing using Pignlproc scripts
 # input: (uncompressed??) Wikipedia XML dump
 #INPUT=/home/chris/projects/pignlproc/src/test/resources/enwiki-latest-pages-articles-1000.xml
-INPUT=/user/hadoop/wikidump/20120601/enwiki-20120601-pages-articles.xml
+#INPUT=/user/hadoop/wikidump/enwiki-20120601-pages-articles.xml
+INPUT=/user/hadoop/wikidump/es/eswiki-20120210-pages-articles.xml
+#INPUT=/user/hadoop/wikidump/pt/ptwiki-20120601-pages-articles.xml
+#INPUT=/user/hadoop/wikidump/de/dewiki-20120203-pages-articles.xml
+#INPUT=/user/hadoop/wikidump/it
+
+#INDEXES
+#ENGLISH
+#INVERTED_INDEX=/user/hadoop/input/invertedIndex/en/inverted_index.tsv
+#SPANISH
+INVERTED_INDEX=/user/hadoop/input/inverted/es/es.tfidf_inverted_index.tsv
 
 #Configuration
 MAX_SPAN_LENGTH=5000
-MIN_COUNT=5
+MIN_COUNT=2
 MIN_CONTEXTS=5
-N=150
-#this constant is chosen based upon the reported number of DBpediaResources
-NUM_DOCS=3000000
+N=250
+#this constant is chosen based upon the calculated number of DBpediaResources(non-redirects)
+#ENGLISH
+#NUM_DOCS=7519283
+#SPANISH
+#NUM_DOCS=1307648
+#SPANISH - 2012-02-10 (for project with Bharath)
+NUM_DOCS=1271907
+#PORTUGUESE
+#GERMAN
+#NUM_DOCS=2056544
+#ITALIAN
+#NUM_DOCS=1455418
 
 #Lucene Analyzer to use (language-specific)
-LANG=en
-ANALYZER_NAME=EnglishAnalyzer
+#LANG=it
+#ANALYZER_NAME=ItalianAnalyzer
+#LANG=pt
+#ANALYZER_NAME=PortugueseAnalyzer
 #LANG=fr
 #ANALYZER_NAME=FrenchAnalyzer
+#LANG=en
+#ANALYZER_NAME=EnglishAnalyzer
+LANG=es
+ANALYZER_NAME=SpanishAnalyzer
+#LANG=de
+#ANALYZER_NAME=GermanAnalyzer
 
 # output directory in HDFS
-OUTPUT_DIR=/user/hadoop/output/top150-filter5-20120601
+OUTPUT_DIR=/user/hadoop/output/
 
 #Location of the Uri list for filtering
-URI_LIST=/user/hadoop/input/milne_uri_list.txt
+#URI_LIST=/user/hadoop/input/milne_uri_list.txt
 
 # location of the stop word list file in HDFS
 STOPLIST_NAME=stopwords.en.list
@@ -29,7 +57,7 @@ STOPLIST_PATH=/user/hadoop/input
 # local path to JAR containing UDFs
 PIGNLPROC_JAR=/local/pignlproc/pignlproc-0.1.0-SNAPSHOT.jar
 # number of reducers
-DEFAULT_PARALLEL=12
+DEFAULT_PARALLEL=9
 
 # compression of output dataset
 #COMPRESS_OUTPUT=

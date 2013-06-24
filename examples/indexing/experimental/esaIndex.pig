@@ -17,7 +17,7 @@
 -- TEST: set parallelism level for reducers
 SET default_parallel 15;
     
-SET job.name 'Wikipedia-Token-Counts-per-URI for $LANG';
+SET job.name 'Wikipedia-ESA-Index-per-URI for $LANG';
 --SET mapred.compress.map.output 'true';
 
 --SET mapred.map.output.compression.codec 'org.apache.hadoop.io.compress.GzipCodec';
@@ -52,9 +52,25 @@ filteredIndex = FOREACH invertedIndex GENERATE
 --DESCRIBE invertedIndex;
 --raw_tsv: {token: chararray,sorted: {(uri: chararray,weight: double)}}
 
-tfidfIndex = LOAD '$TFIDF_INDEX'
-  USING PigStorage('\t','-schema'); 
+--changes to make this work with only an inverted index
+flattenInverted = FOREACH filteredIndex GENERATE
+		token,
+		FLATTEN(sorted) AS (uri, weight);
 
+termGroups = GROUP flattenInverted BY uri;
+
+tfidfIndex = FOREACH termGroups {
+	tokens = flattenInverted.(token, weight);
+	sorted = ORDER tokens BY weight desc;
+	GENERATE 
+	group as uri,
+	sorted;
+};	
+
+--tfidfIndex = LOAD '$TFIDF_INDEX'
+--  USING PigStorage('\t','-schema'); 
+
+--this is wasteful -- we regrouped the uris just for this
 uriTokenCount = FOREACH tfidfIndex GENERATE
 	uri,
 	COUNT(sorted) AS tokenCount: long;
@@ -82,7 +98,7 @@ flattenedTokens = FOREACH uriByTokens GENERATE
 --DUMP flattenedTokens;
 DESCRIBE flattenedTokens;
 
---TEST
+--TEST - why are there nulls??
 filterNoNulls = FILTER flattenedTokens BY weight is not null;
 
 --WORKING - now multiply the token's weight with each of the weights in the bag of resource tokens 

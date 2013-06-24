@@ -8,6 +8,7 @@
 
 
 SET job.name 'DBpedia Spotlight: Names and entities for $LANG'
+SET mapred.child.java.opts '-Xmx2048m'
 
 %default DEFAULT PARELLEL 20
 SET default_parallel $DEFAULT_PARALLEL

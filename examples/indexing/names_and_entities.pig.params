@@ -1,7 +1,7 @@
 PIGNLPROC_JAR=%PIG_PATH/target/pignlproc-0.1.0-SNAPSHOT.jar
 
 # number of reducers
-DEFAULT_PARALLEL=6
+#DEFAULT_PARALLEL=6
 
 LANG=%LANG
 LOCALE=%LOCALE

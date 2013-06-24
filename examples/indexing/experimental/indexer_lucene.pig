@@ -20,9 +20,9 @@ SET job.name 'Wikipedia-Token-Counts-per-URI for $LANG';
 REGISTER $PIGNLPROC_JAR;
 
 -- Define alias for tokenizer function
-DEFINE tokens pignlproc.index.LuceneTokenizer('$STOPLIST_PATH', '$STOPLIST_NAME');
+DEFINE tokens pignlproc.index.LuceneTokenizer('$STOPLIST_PATH', '$STOPLIST_NAME', '$LANG', '$ANALYZER_NAME');
 
-
+DEFINE textWithLink pignlproc.evaluation.ParagraphsWithLink('$MAX_SPAN_LENGTH');
 
 --------------------
 -- prepare
@@ -53,7 +53,7 @@ articles = FOREACH parsedNonRedirects GENERATE
 -- Extract paragraph contexts of the links 
 paragraphs = FOREACH articles GENERATE
   pageUrl,
-  FLATTEN(pignlproc.evaluation.ParagraphsWithLink(text, links, paragraphs))
+  FLATTEN(textWithLink(text, links, paragraphs))
   AS (paragraphIdx, paragraph, targetUri, startPos, endPos);
 
 -- Optimisations for distributed processing
