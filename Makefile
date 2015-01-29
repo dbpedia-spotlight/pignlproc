@@ -1,6 +1,6 @@
 
 build:
-	mvn assembly:assembly
+	mvn package -Dmaven.test.skip=true
 
 clean-pig-generated:
 	rm -rf examples/*.log
