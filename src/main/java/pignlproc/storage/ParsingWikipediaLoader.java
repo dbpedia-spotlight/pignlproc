@@ -61,8 +61,13 @@ public class ParsingWikipediaLoader extends RawWikipediaLoader implements
                 paragraphs.add(tupleFactory.newTupleNoCopy(Arrays.asList(
                         p.value, p.begin, p.end)));
             }
+            DataBag boldforms = bagFactory.newDefaultBag();
+            for (Annotation b : converter.getBoldformAnnotations()) {
+                boldforms.add(tupleFactory.newTupleNoCopy(Arrays.asList(
+                        b.value, b.begin, b.end)));
+            }
             return tupleFactory.newTupleNoCopy(Arrays.asList(title, id, uri, text,
-                    redirect, links, headers, paragraphs));
+                    redirect, links, headers, paragraphs, boldforms));
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
@@ -106,6 +111,15 @@ public class ParsingWikipediaLoader extends RawWikipediaLoader implements
         Schema paragraphInfoWrapper = new Schema(new FieldSchema("t", paragraphInfoSchema));
         paragraphInfoWrapper.setTwoLevelAccessRequired(true);
         schema.add(new FieldSchema("paragraphs", paragraphInfoWrapper, DataType.BAG));
+        
+        Schema boldformInfoSchema = new Schema();
+        boldformInfoSchema.add(new FieldSchema("tagname", DataType.CHARARRAY));
+        boldformInfoSchema.add(new FieldSchema("begin", DataType.INTEGER));
+        boldformInfoSchema.add(new FieldSchema("end", DataType.INTEGER));
+
+        Schema boldformInfoWrapper = new Schema(new FieldSchema("t", boldformInfoSchema));
+        boldformInfoWrapper.setTwoLevelAccessRequired(true);
+        schema.add(new FieldSchema("boldforms", boldformInfoWrapper, DataType.BAG));
 
         return new ResourceSchema(schema);
     }
