@@ -7,7 +7,7 @@ DEFINE read(WIKIPEDIA_DUMP, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS ids, articles
     -- Parse the wikipedia dump and extract text and links data
     parsed = LOAD '$WIKIPEDIA_DUMP'
       USING pignlproc.storage.ParsingWikipediaLoader('$LANG')
-      AS (title, id, pageUrl, text, redirect, links, headers, paragraphs);
+      AS (title, id, pageUrl, text, redirect, links, headers, paragraphs, boldforms);
 
     -- Normalize pageUrls to DBpedia URIs
     parsed = FOREACH parsed GENERATE
@@ -18,7 +18,8 @@ DEFINE read(WIKIPEDIA_DUMP, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS ids, articles
       dbpediaEncode(redirect) AS redirect,
       links,
       headers,
-      paragraphs;
+      paragraphs,
+      boldforms;
 
     -- Separate redirects from non-redirects
     SPLIT parsed INTO
@@ -36,7 +37,8 @@ DEFINE read(WIKIPEDIA_DUMP, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS ids, articles
       pageUrl,
       text,
       links,
-      paragraphs;
+      paragraphs,
+      boldforms;
 
     -- Build transitive closure of redirects
     redirects = redirectTransClo(parsedRedirects);
@@ -46,12 +48,12 @@ DEFINE read(WIKIPEDIA_DUMP, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS ids, articles
       redirectTarget AS uri;
 
     -- Get Links
-    pageLinksNonEmptySf = getLinks(articles, $LANG, $MIN_SURFACE_FORM_LENGTH);
+    pageLinksAndBoldsNonEmptySf = getLinksAndBolds(articles, $LANG, $MIN_SURFACE_FORM_LENGTH);
 
     -- Resolve redirects
     pageLinksRedirectsJoin = JOIN
       redirects BY redirectSource RIGHT,
-      pageLinksNonEmptySf BY uri;
+      pageLinksAndBoldsNonEmptySf BY uri;
     resolvedLinks = FOREACH pageLinksRedirectsJoin GENERATE
       surfaceForm,
       FLATTEN(resolve(uri, redirectTarget)) AS uri,
@@ -63,7 +65,7 @@ DEFINE read(WIKIPEDIA_DUMP, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS ids, articles
       distinctLinks;
 };
 
-DEFINE getLinks(articles, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS pageLinksNonEmptySf {
+DEFINE getLinksAndBolds(articles, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS pageLinksAndBoldsNonEmptySf {
     -- get link pairs
 
     DEFINE dbpediaEncode pignlproc.evaluation.DBpediaUriEncode('$LANG');
@@ -81,8 +83,28 @@ DEFINE getLinks(articles, LANG, MIN_SURFACE_FORM_LENGTH) RETURNS pageLinksNonEmp
       pageUrl AS pageUrl;
 
     -- Filter out surfaceForms that have zero or one character
-    $pageLinksNonEmptySf = FILTER pageLinks
+    pageLinksNonEmptySf = FILTER pageLinks
       BY SIZE(surfaceForm) >= $MIN_SURFACE_FORM_LENGTH;
+      
+    -- get bold pairs
+
+    -- Extract sentence contexts of the initial bold surface forms respecting the paragraph boundaries
+    sentences_ = FOREACH $articles GENERATE
+      pageUrl,
+      FLATTEN(pignlproc.evaluation.SentencesWithLink(text, boldforms, paragraphs))
+      AS (sentenceIdx, sentence, targetUri, startPos, endPos);
+
+    -- Project to three important relations
+    pageInitBoldforms = FOREACH sentences_ GENERATE
+      TRIM(SUBSTRING(sentence, startPos, endPos)) AS surfaceForm,
+      dbpediaEncode(targetUri) AS uri,
+      pageUrl AS pageUrl;
+
+    -- Filter out surfaceForms that have zero or one character
+    pageInitBoldformsNonEmptySf = FILTER pageInitBoldforms
+      BY SIZE(surfaceForm) >= $MIN_SURFACE_FORM_LENGTH;
+    
+    $pageLinksAndBoldsNonEmptySf = UNION pageLinksNonEmptySf, pageInitBoldformsNonEmptySf;
 };
 
 DEFINE redirectTransClo(parsedRedirects) RETURNS redirects {

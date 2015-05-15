@@ -62,6 +62,8 @@ public class AnnotatingMarkupParser implements ITextConverter {
 
     protected final List<Annotation> paragraphs = new ArrayList<Annotation>();
 
+    protected final List<Annotation> boldforms = new ArrayList<Annotation>();
+
     protected String languageCode;
 
     protected final WikiModel model;
@@ -385,6 +387,13 @@ public class AnnotatingMarkupParser implements ITextConverter {
                                     tagName));
                             countingBuffer.append("\n\n");
                         }
+                        if ("b".equals(tagName)) {
+                            if (tagBegin < 500) {
+                                boldforms.add(new Annotation(tagBegin,
+                                        countingBuffer.currentPosition, "boldform",
+                                        tagName));
+                            }
+                        }
                     }
                 }
             } finally {
@@ -413,6 +422,10 @@ public class AnnotatingMarkupParser implements ITextConverter {
     public List<Annotation> getParagraphAnnotations() {
         return paragraphs;
     }
+    
+    public List<Annotation> getBoldformAnnotations() {
+        return boldforms;
+    }
 
     public List<String> getParagraphs() {
         List<String> texts = new ArrayList<String>();
@@ -426,6 +439,14 @@ public class AnnotatingMarkupParser implements ITextConverter {
         List<String> texts = new ArrayList<String>();
         for (Annotation h : headers) {
             texts.add(text.substring(h.begin, h.end));
+        }
+        return texts;
+    }
+    
+    public List<String> getBoldforms() {
+        List<String> texts = new ArrayList<String>();
+        for (Annotation b : boldforms) {
+            texts.add(text.substring(b.begin, b.end));
         }
         return texts;
     }
